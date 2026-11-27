@@ -1,5 +1,6 @@
 // Aeris Valley world: one clear job — every fixed place in the valley.
-// Runway 27, the ring course, the river, the lake, the town, the clouds.
+// Runway 27, the ring course, the river, the lake, the town, the clouds,
+// the west coastline and sea, shaded hills, the control tower.
 import { mulberry32, terrainHeight } from './random.js';
 
 export const RUNWAY = {
@@ -26,6 +27,30 @@ export const LAKE = { x: -1500, z: 2900, rx: 900, rz: 620 };
 export const TOWN = { x: 950, z: 1500, blocks: 26 };
 
 export const LIGHTHOUSE = { x: -2100, z: 800, y: 0 };
+
+// The valley's west edge is a coastline: sea west of x = -2600, sand at the shore.
+export const SEA = { x0: -9000, x1: -2600, z0: -1500, z1: 6500 };
+export const BEACH = { x0: -2600, x1: -2380, z0: -1500, z1: 6500 };
+
+// Control tower beside Runway 27, west side of the strip.
+export const TOWER = { x: -190, z: 1250 };
+
+// Shaded hills: low distant mounds across the valley floor, clear of the
+// runway, the lake and the sea — rolling terrain, not foreground balloons.
+export function buildHills() {
+  const rng = mulberry32(20261127);
+  const hills = [];
+  for (let i = 0; i < 18; i++) {
+    const x = (rng() > 0.5 ? 1 : -1) * (800 + rng() * 3000);
+    const z = 2200 + rng() * 3800;
+    if (x < -2300) continue;
+    const dx = x - LAKE.x;
+    const dz = z - LAKE.z;
+    if ((dx * dx) / (LAKE.rx * LAKE.rx) + (dz * dz) / (LAKE.rz * LAKE.rz) < 1.2) continue;
+    hills.push({ x, z, r: 200 + rng() * 180, h: 90 + rng() * 110 });
+  }
+  return hills;
+}
 
 export function buildRiverPoints() {
   const points = [];
@@ -90,6 +115,7 @@ export function buildTrees() {
     const x = (rng() - 0.5) * 9000;
     const z = -800 + rng() * 6800;
     if (Math.abs(x) < 220 && z > 400 && z < 2200) continue;
+    if (x < -2400) continue; // Pines grow on land, not in the sea.
     const dx = x - LAKE.x;
     const dz = z - LAKE.z;
     if ((dx * dx) / (LAKE.rx * LAKE.rx) + (dz * dz) / (LAKE.rz * LAKE.rz) < 1.1) continue;

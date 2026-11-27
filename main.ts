@@ -4,7 +4,7 @@
 // describes. Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -16,6 +16,8 @@ const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 // here instead of handing in a dossier the scorer would reject.
 const shotsDir = join(here, 'screenshots');
 if (!existsSync(shotsDir)) throw new Error('screenshots/ is missing — take 3 or 4 real renders first');
+const shotCount = readdirSync(shotsDir).filter((f) => /\.(png|jpe?g)$/i.test(f)).length;
+if (shotCount < 3 || shotCount > 4) throw new Error(`screenshots/ holds ${shotCount} images — the gate allows 3 or 4`);
 const gameIndex = join(here, 'game', 'index.html');
 if (!existsSync(gameIndex)) throw new Error('game/index.html is missing — the gate requires it');
 

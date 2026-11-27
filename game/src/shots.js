@@ -3,7 +3,7 @@
 export function applyShot(shot, plane, mission) {
   const presets = {
     cover: {
-      x: -320, z: -100, altFt: 560, headingDeg: 6, pitchDeg: -2, rollDeg: -6,
+      x: -320, z: 200, altFt: 460, headingDeg: 5, pitchDeg: -2, rollDeg: -6,
       speedKts: 132, throttle: 0.72, fuel: 82,
     },
     rings: {
@@ -27,6 +27,7 @@ export function applyShot(shot, plane, mission) {
   if (shot === 'landing') {
     mission.ringsPassed = 6;
     mission.nextRing = 6;
+    mission.rings.forEach((r) => { r.passed = true; });
     mission.score = 740;
   }
   if (shot === 'cover') mission.score = 240;

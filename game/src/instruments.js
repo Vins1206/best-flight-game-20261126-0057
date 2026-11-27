@@ -114,22 +114,26 @@ export function drawCompassStrip(ctx, w, headingDeg) {
 export function drawHUD(ctx, plane, mission, score, timeLeft, w, h) {
   ctx.save();
   ctx.textBaseline = 'alphabetic';
-  // Top-left: altitude, speed, heading — big, lit, always readable.
+  // Top-left: altitude, speed, heading, vertical speed — big, lit, always readable.
   ctx.fillStyle = 'rgba(10,16,28,0.72)';
-  ctx.fillRect(14, 14, 300, 96);
+  ctx.fillRect(14, 14, 300, 126);
   ctx.strokeStyle = 'rgba(255,201,60,0.55)';
-  ctx.strokeRect(14, 14, 300, 96);
+  ctx.strokeRect(14, 14, 300, 126);
   ctx.textAlign = 'left';
   ctx.fillStyle = '#ffc93c';
   ctx.font = 'bold 13px monospace';
   ctx.fillText('ALTITUDE', 28, 36);
   ctx.fillText('SPEED', 28, 66);
   ctx.fillText('HEADING', 28, 96);
+  ctx.fillText('VERT', 28, 126);
   ctx.fillStyle = '#eaf2ff';
   ctx.font = 'bold 26px monospace';
   ctx.fillText(`${Math.round(plane.altFt).toLocaleString('en-US')} FT`, 130, 38);
   ctx.fillText(`${Math.round(plane.speedKts)} KT`, 130, 68);
   ctx.fillText(`${String(Math.round(plane.headingDeg)).padStart(3, '0')}°`, 130, 98);
+  ctx.font = 'bold 20px monospace';
+  const vsFpm = Math.round(plane.verticalSpeedFps * 60);
+  ctx.fillText(`${vsFpm >= 0 ? '+' : ''}${vsFpm.toLocaleString('en-US')} FPM`, 130, 128);
   if (plane.speedKts < CONFIG.stallSpeedKts && plane.altFt > 60) {
     ctx.fillStyle = '#ff6b5e';
     ctx.font = 'bold 15px monospace';

@@ -1,8 +1,9 @@
 // Scene rendering: one clear job — the chase view over Aeris Valley.
-// Sky, sun, clouds, mountain ridges, fields, river, lake, town, runway, rings, aircraft.
+// Sky, sun, clouds, mountain ridges, fields, river, lake, sea, hills, town,
+// tower, runway, rings, aircraft.
 import { CONFIG, PALETTE } from './config.js';
 import { ridgeHeightAt, terrainHeight } from './random.js';
-import { LAKE, LIGHTHOUSE, RING_COURSE, RUNWAY, FIELD_PATCHES, buildRiverPoints, buildClouds, buildTownBlocks, buildBirds, buildTrees, buildRoadPoints } from './world.js';
+import { LAKE, LIGHTHOUSE, RING_COURSE, RUNWAY, FIELD_PATCHES, SEA, BEACH, TOWER, buildRiverPoints, buildClouds, buildTownBlocks, buildBirds, buildTrees, buildRoadPoints, buildHills } from './world.js';
 
 const RIVER_POINTS = buildRiverPoints();
 const CLOUDS = buildClouds();
@@ -10,6 +11,7 @@ const TOWN_BLOCKS = buildTownBlocks();
 const BIRDS = buildBirds();
 const TREES = buildTrees();
 const ROAD_POINTS = buildRoadPoints();
+const HILLS = buildHills();
 const FOCAL = 760;
 
 export function project(plane, wx, wy, wz, w, h, horizonY, pitchOffset) {
@@ -158,6 +160,91 @@ export function drawGround(ctx, plane, w, h, horizonY, pitchOffset) {
     if (!started) { ctx.moveTo(s.x, s.y); started = true; } else ctx.lineTo(s.x, s.y);
   }
   ctx.stroke();
+}
+
+// Sea and sand: the west coastline, drawn as a grid of projected cells so
+// only the part in front of the camera is painted.
+export function drawSea(ctx, plane, w, h, horizonY, pitchOffset) {
+  const paint = (rect, colorA, colorB, cols) => {
+    const rows = 8;
+    for (let ci = 0; ci < cols; ci++) {
+      for (let ri = 0; ri < rows; ri++) {
+        const x0 = rect.x0 + (rect.x1 - rect.x0) * (ci / cols);
+        const x1 = rect.x0 + (rect.x1 - rect.x0) * ((ci + 1) / cols);
+        const z0 = rect.z0 + (rect.z1 - rect.z0) * (ri / rows);
+        const z1 = rect.z0 + (rect.z1 - rect.z0) * ((ri + 1) / rows);
+        const corners = [
+          project(plane, x0, 2, z0, w, h, horizonY, pitchOffset),
+          project(plane, x1, 2, z0, w, h, horizonY, pitchOffset),
+          project(plane, x1, 2, z1, w, h, horizonY, pitchOffset),
+          project(plane, x0, 2, z1, w, h, horizonY, pitchOffset),
+        ];
+        if (corners.some((c) => !c)) continue;
+        ctx.fillStyle = (ci + ri) % 2 ? colorA : colorB;
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (const c of corners.slice(1)) ctx.lineTo(c.x, c.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  };
+  paint(SEA, '#4a8fd8', '#3f7fd0', 6);
+  paint(BEACH, '#d9c48a', '#d9c48a', 1);
+}
+
+// Shaded hills: each mound is a shadowed flank plus a sunlit face, so the
+// valley floor reads as ground with height, not a flat postcard. The mound
+// spans apex to base only — never taller than its real height on screen —
+// and giants too close to the camera are skipped outright.
+export function drawHills(ctx, plane, w, h, horizonY, pitchOffset) {
+  for (const hill of HILLS) {
+    const ground = terrainHeight(hill.x, hill.z);
+    const apex = project(plane, hill.x, ground + hill.h, hill.z, w, h, horizonY, pitchOffset);
+    const base = project(plane, hill.x, ground, hill.z, w, h, horizonY, pitchOffset);
+    if (!apex || !base || apex.depth < 900 || apex.depth > 9000) continue;
+    const rx = hill.r * apex.scale;
+    const ry = Math.max(2, (base.y - apex.y) / 2);
+    if (rx < 8 || rx > 320 || ry < 2 || ry > 90) continue;
+    const cy = (apex.y + base.y) / 2;
+    ctx.fillStyle = 'rgba(38,74,40,0.9)';
+    ctx.beginPath();
+    ctx.ellipse(apex.x + rx * 0.12, cy + ry * 0.15, rx * 0.95, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5d9b4e';
+    ctx.beginPath();
+    ctx.ellipse(apex.x - rx * 0.08, cy + ry * 0.1, rx * 0.85, ry * 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(apex.x - rx * 0.25, cy - ry * 0.35, rx * 0.3, ry * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Control tower: red/white banded shaft, lit glass cab, blinking beacon.
+export function drawTower(ctx, plane, w, h, horizonY, pitchOffset, timeSec) {
+  const base = project(plane, TOWER.x, terrainHeight(TOWER.x, TOWER.z), TOWER.z, w, h, horizonY, pitchOffset);
+  if (!base || base.depth > 9000) return;
+  const s = Math.max(4, 12000 / base.depth);
+  const shaftW = s * 0.55;
+  const shaftH = s * 3.4;
+  ctx.fillStyle = '#f5f2e8';
+  ctx.fillRect(base.x - shaftW / 2, base.y - shaftH, shaftW, shaftH);
+  ctx.fillStyle = '#c23b2e';
+  ctx.fillRect(base.x - shaftW / 2, base.y - shaftH * 0.72, shaftW, shaftH * 0.18);
+  ctx.fillRect(base.x - shaftW / 2, base.y - shaftH * 0.36, shaftW, shaftH * 0.18);
+  ctx.fillStyle = '#2b6cb0';
+  ctx.fillRect(base.x - s * 0.9, base.y - shaftH - s * 0.9, s * 1.8, s * 0.9);
+  ctx.fillStyle = 'rgba(191,230,255,0.9)';
+  ctx.fillRect(base.x - s * 0.7, base.y - shaftH - s * 0.75, s * 1.4, s * 0.5);
+  const blink = Math.sin(timeSec * 2.4) > 0;
+  ctx.fillStyle = blink ? '#ff6b5e' : '#5a2320';
+  if (blink) { ctx.shadowColor = '#ff6b5e'; ctx.shadowBlur = 12; }
+  ctx.beginPath();
+  ctx.arc(base.x, base.y - shaftH - s * 1.1, Math.max(2, s * 0.22), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
 }
 
 export function drawTrees(ctx, plane, w, h, horizonY, pitchOffset) {
@@ -539,8 +626,11 @@ export function drawScene(ctx, plane, mission, view, w, h, timeSec) {
   drawSky(ctx, plane, w, h, horizonY, timeSec);
   drawRidges(ctx, plane, w, horizonY);
   drawGround(ctx, plane, w, h, horizonY, pitchOffset);
+  drawSea(ctx, plane, w, h, horizonY, pitchOffset);
+  drawHills(ctx, plane, w, h, horizonY, pitchOffset);
   drawTrees(ctx, plane, w, h, horizonY, pitchOffset);
   drawRunway(ctx, plane, w, h, horizonY, pitchOffset);
+  drawTower(ctx, plane, w, h, horizonY, pitchOffset, timeSec);
   drawTown(ctx, plane, w, h, horizonY, pitchOffset);
   drawLighthouse(ctx, plane, w, h, horizonY, pitchOffset);
   drawClouds(ctx, plane, w, h, horizonY, pitchOffset, timeSec);
