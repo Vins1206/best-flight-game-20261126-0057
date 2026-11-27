@@ -45,8 +45,8 @@ export function updateFlight(plane, input, dt) {
   plane.fuel = Math.max(0, plane.fuel - CONFIG.fuelBurnPerSec * plane.throttle * dt);
   if (plane.fuel <= 0) plane.throttle = 0;
 
-  // Pitch: Up / Down arrows or mouse Y. Bank: Left / Right arrows or mouse X.
-  const pitchTarget = (input.pitchUp ? -14 : 0) + (input.pitchDown ? 12 : 0) + input.mousePitch * 16;
+  // Pitch: Up / Down arrows or mouse Y. Arcade convention: Up climbs, Down dives.
+  const pitchTarget = (input.pitchUp ? 14 : 0) + (input.pitchDown ? -12 : 0) - input.mousePitch * 16;
   const rollTarget = (input.rollLeft ? -38 : 0) + (input.rollRight ? 38 : 0) + input.mouseRoll * 42;
   plane.pitchDeg += (pitchTarget - plane.pitchDeg) * Math.min(1, dt * 3.2);
   plane.rollDeg += (rollTarget - plane.rollDeg) * Math.min(1, dt * 3.2);
@@ -58,11 +58,11 @@ export function updateFlight(plane, input, dt) {
     - drag * dt * (plane.speedKts / 120);
   plane.speedKts = Math.max(0, plane.speedKts);
 
-  // Turn rate grows with bank and falls off near stall.
+  // Turn rate grows with bank and falls off near stall. Right bank turns right.
   const stallFactor = plane.speedKts < CONFIG.stallSpeedKts
     ? Math.max(0.25, plane.speedKts / CONFIG.stallSpeedKts) : 1;
   plane.headingDeg = (plane.headingDeg
-    - plane.rollDeg * CONFIG.turnRate * stallFactor * dt * (plane.speedKts / 110) + 360) % 360;
+    + plane.rollDeg * CONFIG.turnRate * stallFactor * dt * (plane.speedKts / 110) + 360) % 360;
 
   // Climb and sink: pitch lifts, stall sinks, flaps soften the sink.
   const speedFps = plane.speedKts * 1.68781;
@@ -82,6 +82,13 @@ export function updateFlight(plane, input, dt) {
   const groundSpeed = speedFps * Math.cos((plane.pitchDeg * Math.PI) / 180);
   plane.x += Math.sin(hdg) * groundSpeed * dt;
   plane.z += Math.cos(hdg) * groundSpeed * dt;
+
+  // Valley wind: a steady push from the west, felt most at low speed.
+  const windToDeg = (CONFIG.windFromDeg + 180) % 360;
+  const windRad = (windToDeg * Math.PI) / 180;
+  const windFps = CONFIG.windSpeedKts * 1.68781 * 0.28;
+  plane.x += Math.sin(windRad) * windFps * dt;
+  plane.z += Math.cos(windRad) * windFps * dt;
 
   // Soft valley walls: steer back instead of letting the pilot fly off the map.
   const r = Math.hypot(plane.x, plane.z - 2400);

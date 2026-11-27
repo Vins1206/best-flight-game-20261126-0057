@@ -18,6 +18,9 @@ export const CONFIG = {
   ringRadiusFt: 90,
   ringScore: 100,
   landingScore: 500,
+  // Steady valley wind: from the west, 12 kt — a crosswind on Runway 27.
+  windFromDeg: 270,
+  windSpeedKts: 12,
   // World scale: 1 unit = 1 foot on the ground plane.
   worldRadius: 9000,
   groundLevel: 0,

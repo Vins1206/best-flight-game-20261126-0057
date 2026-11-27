@@ -8,7 +8,7 @@ export const RUNWAY = {
   x: 0,
   zStart: 700,
   zEnd: 1900,
-  halfWidth: 55,
+  halfWidth: 65,
   headingDeg: 270,
 };
 
@@ -80,4 +80,42 @@ export function buildBirds() {
     });
   }
   return birds;
+}
+
+// Valley pines: fixed positions, clear of the runway strip and the lake.
+export function buildTrees() {
+  const rng = mulberry32(2026);
+  const trees = [];
+  for (let i = 0; i < 64; i++) {
+    const x = (rng() - 0.5) * 9000;
+    const z = -800 + rng() * 6800;
+    if (Math.abs(x) < 220 && z > 400 && z < 2200) continue;
+    const dx = x - LAKE.x;
+    const dz = z - LAKE.z;
+    if ((dx * dx) / (LAKE.rx * LAKE.rx) + (dz * dz) / (LAKE.rz * LAKE.rz) < 1.1) continue;
+    trees.push({ x, z, s: 0.7 + rng() * 0.9 });
+  }
+  return trees;
+}
+
+// Patchwork fields: fixed world rectangles in crop colours.
+export const FIELD_PATCHES = [
+  { x0: -2600, z0: 400, x1: -1700, z1: 1300, color: '#c2a95e' },
+  { x0: 700, z0: 300, x1: 1500, z1: 1100, color: '#8fbf5a' },
+  { x0: -1500, z0: 2100, x1: -700, z1: 2900, color: '#a8894a' },
+  { x0: 600, z0: 2400, x1: 1400, z1: 3200, color: '#7fae62' },
+  { x0: -2400, z0: 3400, x1: -1500, z1: 4200, color: '#c2a95e' },
+  { x0: 800, z0: 3800, x1: 1700, z1: 4600, color: '#5d8a4a' },
+  { x0: -900, z0: 4700, x1: 200, z1: 5500, color: '#8fbf5a' },
+];
+
+// Farm road: town to the runway threshold.
+export function buildRoadPoints() {
+  const points = [];
+  for (let t = 0; t <= 1.0001; t += 0.1) {
+    const x = 950 + (0 - 950) * t + Math.sin(t * 3.1) * 120;
+    const z = 1500 + (700 - 1500) * t;
+    points.push({ x, z, y: terrainHeight(x, z) + 3 });
+  }
+  return points;
 }

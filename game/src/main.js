@@ -4,7 +4,7 @@ import { CONFIG, MISSIONS } from './config.js';
 import { createPlane, updateFlight } from './flight.js';
 import { createInput, consumePress } from './input.js';
 import { createAudio } from './audio.js';
-import { drawHUD, drawCockpitPanel } from './instruments.js';
+import { drawHUD, drawCockpitPanel, drawCockpitFrame } from './instruments.js';
 import { drawScene, drawTargetMarker } from './render.js';
 import { createMission, updateMission, missionGoalText, nextRingTarget, runwayTarget } from './missions.js';
 import { applyShot, shotView } from './shots.js';
@@ -177,8 +177,11 @@ function frame(now) {
   const target = mission.kind === 'landing' || mission.ringsPassed >= mission.rings.length
     ? runwayTarget() : nextRingTarget(mission);
   if (mission.state === 'play' && target) drawTargetMarker(ctx, plane, target, W, H, H * 0.42 - plane.pitchDeg * 3, plane.pitchDeg * 1.5);
-  if (view === 'cockpit') drawCockpitPanel(ctx, plane, W, H);
-  drawHUD(ctx, plane, mission.def, mission.score, mission.timeLeft, W, H);
+  if (view === 'cockpit') {
+    drawCockpitFrame(ctx, W, H);
+    drawCockpitPanel(ctx, plane, W, H);
+  }
+  drawHUD(ctx, plane, mission, mission.score, mission.timeLeft, W, H);
 
   if (mission.state === 'title') drawTitle();
   if (mission.state === 'over') drawEndScreen();

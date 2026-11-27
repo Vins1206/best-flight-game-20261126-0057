@@ -14,9 +14,9 @@ export function drawGauge(ctx, cx, cy, r, label, valueText, frac, color) {
   ctx.beginPath();
   ctx.arc(cx, cy, r - 4, -Math.PI * 0.75, -Math.PI * 0.75 + Math.PI * 1.5 * frac);
   ctx.strokeStyle = color;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 7;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 14;
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.fillStyle = '#eaf2ff';
@@ -126,7 +126,7 @@ export function drawHUD(ctx, plane, mission, score, timeLeft, w, h) {
   ctx.fillText('SPEED', 28, 66);
   ctx.fillText('HEADING', 28, 96);
   ctx.fillStyle = '#eaf2ff';
-  ctx.font = 'bold 24px monospace';
+  ctx.font = 'bold 26px monospace';
   ctx.fillText(`${Math.round(plane.altFt).toLocaleString('en-US')} FT`, 130, 38);
   ctx.fillText(`${Math.round(plane.speedKts)} KT`, 130, 68);
   ctx.fillText(`${String(Math.round(plane.headingDeg)).padStart(3, '0')}°`, 130, 98);
@@ -135,23 +135,28 @@ export function drawHUD(ctx, plane, mission, score, timeLeft, w, h) {
     ctx.font = 'bold 15px monospace';
     ctx.fillText('⚠ STALL', 250, 68);
   }
-  // Top-right: mission, score, timer.
+  // Top-right: mission, score, timer, rings and wind — the sortie at a glance.
   ctx.fillStyle = 'rgba(10,16,28,0.72)';
-  ctx.fillRect(w - 314, 14, 300, 96);
+  ctx.fillRect(w - 314, 14, 300, 118);
   ctx.strokeStyle = 'rgba(125,255,154,0.5)';
-  ctx.strokeRect(w - 314, 14, 300, 96);
+  ctx.strokeRect(w - 314, 14, 300, 118);
   ctx.textAlign = 'right';
   ctx.fillStyle = '#7dff9a';
   ctx.font = 'bold 13px monospace';
-  ctx.fillText(mission.name, w - 28, 36);
+  ctx.fillText(mission.def.name, w - 28, 36);
   ctx.fillStyle = '#eaf2ff';
   ctx.font = 'bold 24px monospace';
-  ctx.fillText(`SCORE ${score}`, w - 28, 68);
+  ctx.fillText(`SCORE ${score}`, w - 28, 66);
   const mm = Math.floor(timeLeft / 60);
   const ss = String(Math.floor(timeLeft % 60)).padStart(2, '0');
   ctx.font = 'bold 18px monospace';
   ctx.fillStyle = timeLeft < 30 ? '#ff6b5e' : '#eaf2ff';
-  ctx.fillText(`TIME ${mm}:${ss}`, w - 28, 96);
+  ctx.fillText(`TIME ${mm}:${ss}`, w - 28, 94);
+  ctx.fillStyle = '#ffc93c';
+  ctx.font = 'bold 14px monospace';
+  const ringsText = mission.rings.length
+    ? `RINGS ${mission.ringsPassed}/${mission.rings.length}` : 'LAND IT SOFT';
+  ctx.fillText(`${ringsText}  •  WIND ${CONFIG.windFromDeg}°/${CONFIG.windSpeedKts}KT`, w - 28, 120);
   drawCompassStrip(ctx, w, plane.headingDeg);
   // Fuel + throttle bars, bottom-left above the panel.
   const barY = h - 196;
@@ -170,6 +175,33 @@ export function drawHUD(ctx, plane, mission, score, timeLeft, w, h) {
   ctx.restore();
 }
 
+export function drawCockpitFrame(ctx, w, h) {
+  const panelTop = h - 168;
+  ctx.save();
+  ctx.fillStyle = '#0b0f18';
+  // A-pillars and a centre post: the windshield reads as a cockpit, not a window.
+  ctx.beginPath();
+  ctx.moveTo(w * 0.045, panelTop);
+  ctx.lineTo(w * 0.085, 0);
+  ctx.lineTo(w * 0.115, 0);
+  ctx.lineTo(w * 0.085, panelTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w * 0.955, panelTop);
+  ctx.lineTo(w * 0.915, 0);
+  ctx.lineTo(w * 0.885, 0);
+  ctx.lineTo(w * 0.915, panelTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(w / 2 - 5, 0, 10, panelTop);
+  ctx.fillRect(0, 0, w, 16);
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(w * 0.085, 0, 3, panelTop);
+  ctx.fillRect(w * 0.912, 0, 3, panelTop);
+  ctx.restore();
+}
+
 export function drawCockpitPanel(ctx, plane, w, h) {
   const panelTop = h - 168;
   ctx.save();
@@ -178,6 +210,12 @@ export function drawCockpitPanel(ctx, plane, w, h) {
   grad.addColorStop(1, '#0b0f18');
   ctx.fillStyle = grad;
   ctx.fillRect(0, panelTop, w, h - panelTop);
+  // Warm wash along the panel's top edge — the instruments are lit.
+  const wash = ctx.createLinearGradient(0, panelTop, 0, panelTop + 26);
+  wash.addColorStop(0, 'rgba(255,179,71,0.28)');
+  wash.addColorStop(1, 'rgba(255,179,71,0)');
+  ctx.fillStyle = wash;
+  ctx.fillRect(0, panelTop, w, 26);
   ctx.strokeStyle = '#2b3a55';
   ctx.lineWidth = 2;
   ctx.beginPath();

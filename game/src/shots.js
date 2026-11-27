@@ -3,11 +3,11 @@
 export function applyShot(shot, plane, mission) {
   const presets = {
     cover: {
-      x: -60, z: 0, altFt: 520, headingDeg: 8, pitchDeg: -2, rollDeg: -6,
+      x: -320, z: -100, altFt: 560, headingDeg: 6, pitchDeg: -2, rollDeg: -6,
       speedKts: 132, throttle: 0.72, fuel: 82,
     },
     rings: {
-      x: -330, z: 620, altFt: 480, headingDeg: 4, pitchDeg: -1, rollDeg: 10,
+      x: -330, z: 500, altFt: 480, headingDeg: 4, pitchDeg: -1, rollDeg: 10,
       speedKts: 148, throttle: 0.8, fuel: 76,
     },
     landing: {

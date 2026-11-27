@@ -2,12 +2,14 @@
 // Sky, sun, clouds, mountain ridges, fields, river, lake, town, runway, rings, aircraft.
 import { CONFIG, PALETTE } from './config.js';
 import { ridgeHeightAt, terrainHeight } from './random.js';
-import { LAKE, LIGHTHOUSE, RING_COURSE, RUNWAY, buildRiverPoints, buildClouds, buildTownBlocks, buildBirds } from './world.js';
+import { LAKE, LIGHTHOUSE, RING_COURSE, RUNWAY, FIELD_PATCHES, buildRiverPoints, buildClouds, buildTownBlocks, buildBirds, buildTrees, buildRoadPoints } from './world.js';
 
 const RIVER_POINTS = buildRiverPoints();
 const CLOUDS = buildClouds();
 const TOWN_BLOCKS = buildTownBlocks();
 const BIRDS = buildBirds();
+const TREES = buildTrees();
+const ROAD_POINTS = buildRoadPoints();
 const FOCAL = 760;
 
 export function project(plane, wx, wy, wz, w, h, horizonY, pitchOffset) {
@@ -102,6 +104,36 @@ export function drawGround(ctx, plane, w, h, horizonY, pitchOffset) {
     ctx.fillRect(0, yFar.y, w, Math.max(2, yNear.y - yFar.y));
     ctx.globalAlpha = 1;
   }
+  // Patchwork fields: fixed crop rectangles, projected onto the valley floor.
+  for (const patch of FIELD_PATCHES) {
+    const corners = [
+      project(plane, patch.x0, terrainHeight(patch.x0, patch.z0) + 2, patch.z0, w, h, horizonY, pitchOffset),
+      project(plane, patch.x1, terrainHeight(patch.x1, patch.z0) + 2, patch.z0, w, h, horizonY, pitchOffset),
+      project(plane, patch.x1, terrainHeight(patch.x1, patch.z1) + 2, patch.z1, w, h, horizonY, pitchOffset),
+      project(plane, patch.x0, terrainHeight(patch.x0, patch.z1) + 2, patch.z1, w, h, horizonY, pitchOffset),
+    ];
+    if (corners.some((c) => !c)) continue;
+    ctx.fillStyle = patch.color;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.moveTo(corners[0].x, corners[0].y);
+    for (const c of corners.slice(1)) ctx.lineTo(c.x, c.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // Farm road: town to the runway threshold.
+  ctx.strokeStyle = '#8a7a5a';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  let roadStarted = false;
+  for (const p of ROAD_POINTS) {
+    const s = project(plane, p.x, p.y, p.z, w, h, horizonY, pitchOffset);
+    if (!s) continue;
+    ctx.lineWidth = Math.max(1.5, 2200 / s.depth);
+    if (!roadStarted) { ctx.moveTo(s.x, s.y); roadStarted = true; } else ctx.lineTo(s.x, s.y);
+  }
+  ctx.stroke();
   // Lake: a flat blue ellipse on the valley floor, west of the course.
   const lake = project(plane, LAKE.x, 6, LAKE.z, w, h, horizonY, pitchOffset);
   if (lake && lake.depth < 9000) {
@@ -126,6 +158,28 @@ export function drawGround(ctx, plane, w, h, horizonY, pitchOffset) {
     if (!started) { ctx.moveTo(s.x, s.y); started = true; } else ctx.lineTo(s.x, s.y);
   }
   ctx.stroke();
+}
+
+export function drawTrees(ctx, plane, w, h, horizonY, pitchOffset) {
+  for (const t of TREES) {
+    const base = project(plane, t.x, terrainHeight(t.x, t.z), t.z, w, h, horizonY, pitchOffset);
+    if (!base || base.depth > 7500) continue;
+    const s = Math.max(2, 5200 / base.depth) * t.s;
+    ctx.fillStyle = '#2c4a26';
+    ctx.beginPath();
+    ctx.moveTo(base.x, base.y - s * 2.2);
+    ctx.lineTo(base.x - s * 0.8, base.y);
+    ctx.lineTo(base.x + s * 0.8, base.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#3f6b34';
+    ctx.beginPath();
+    ctx.moveTo(base.x, base.y - s * 2.2);
+    ctx.lineTo(base.x - s * 0.45, base.y - s * 0.7);
+    ctx.lineTo(base.x + s * 0.45, base.y - s * 0.7);
+    ctx.closePath();
+    ctx.fill();
+  }
 }
 
 export function drawRunway(ctx, plane, w, h, horizonY, pitchOffset) {
@@ -158,6 +212,37 @@ export function drawRunway(ctx, plane, w, h, horizonY, pitchOffset) {
     ctx.font = `bold ${Math.max(12, Math.round(9000 / num.depth))}px monospace`;
     ctx.textAlign = 'center';
     ctx.fillText('27', num.x, num.y);
+  }
+  // Edge lights down both sides, green threshold, red far end, PAPI on approach.
+  for (let z = RUNWAY.zStart + 60; z <= RUNWAY.zEnd; z += 150) {
+    for (const side of [-1, 1]) {
+      const light = project(plane, RUNWAY.x + side * (RUNWAY.halfWidth + 8), 6, z, w, h, horizonY, pitchOffset);
+      if (!light) continue;
+      ctx.fillStyle = '#fff3c4';
+      ctx.shadowColor = '#fff3c4';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(light.x, light.y, Math.max(1.5, 2600 / light.depth), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+  const threshold = project(plane, RUNWAY.x, 6, RUNWAY.zStart + 24, w, h, horizonY, pitchOffset);
+  const thresholdR = project(plane, RUNWAY.x + RUNWAY.halfWidth, 6, RUNWAY.zStart + 24, w, h, horizonY, pitchOffset);
+  if (threshold && thresholdR) {
+    ctx.strokeStyle = '#7dff9a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(2 * threshold.x - thresholdR.x, threshold.y);
+    ctx.lineTo(thresholdR.x, thresholdR.y);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 4; i++) {
+    const papi = project(plane, RUNWAY.x + 92 + i * 22, 10, RUNWAY.zStart + 300, w, h, horizonY, pitchOffset);
+    if (!papi) continue;
+    ctx.fillStyle = i < 2 ? '#ff6b5e' : '#f5f2e8';
+    const ps = Math.max(2, 3200 / papi.depth);
+    ctx.fillRect(papi.x - ps / 2, papi.y - ps / 2, ps, ps);
   }
   // Hangars beside the strip.
   for (const hx of [-150, 150]) {
@@ -206,13 +291,18 @@ export function drawLighthouse(ctx, plane, w, h, horizonY, pitchOffset) {
 }
 
 export function drawClouds(ctx, plane, w, h, horizonY, pitchOffset, timeSec) {
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
   for (const c of CLOUDS) {
     const drifted = { ...c, x: c.x + timeSec * c.drift };
     const p = project(plane, drifted.x, drifted.y, drifted.z, w, h, horizonY, pitchOffset);
     if (!p || p.depth < 400 || p.depth > 12000) continue;
     const s = c.size * p.scale * 0.9;
     if (s < 4) continue;
+    // Shaded base first, then the lit top — clouds with volume, not flat blobs.
+    ctx.fillStyle = 'rgba(185,200,224,0.85)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + s * 0.1, s, s * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.beginPath();
     ctx.ellipse(p.x, p.y, s, s * 0.32, 0, 0, Math.PI * 2);
     ctx.ellipse(p.x - s * 0.5, p.y + s * 0.08, s * 0.6, s * 0.24, 0, 0, Math.PI * 2);
@@ -249,14 +339,25 @@ export function drawRings(ctx, plane, mission, w, h, horizonY, pitchOffset, time
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.scale(pulse, pulse);
-    ctx.lineWidth = Math.max(3, r * 0.16);
-    ctx.strokeStyle = ring.passed ? 'rgba(125,255,154,0.9)' : isNext ? PALETTE.ringGold : 'rgba(255,201,60,0.45)';
+    // Torus shading: dark outer rim, gold body, lit top arc — a ring, not a flat circle.
+    ctx.lineWidth = Math.max(4, r * 0.22);
+    ctx.strokeStyle = ring.passed ? 'rgba(46,110,62,0.9)' : 'rgba(150,90,0,0.9)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.92, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(3, r * 0.13);
+    ctx.strokeStyle = ring.passed ? 'rgba(125,255,154,0.95)' : isNext ? PALETTE.ringGold : 'rgba(255,201,60,0.5)';
     ctx.shadowColor = ring.passed ? '#7dff9a' : PALETTE.ringGlow;
     ctx.shadowBlur = isNext ? 22 : 8;
     ctx.beginPath();
     ctx.ellipse(0, 0, r, r * 0.92, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.lineWidth = Math.max(2, r * 0.04);
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.92, 0, Math.PI * 1.05, Math.PI * 1.65);
+    ctx.stroke();
     if (isNext) {
       ctx.fillStyle = '#fff3c4';
       ctx.font = `bold ${Math.min(30, Math.max(12, Math.round(r * 0.32)))}px monospace`;
@@ -295,7 +396,7 @@ export function drawAircraft(ctx, plane, w, h, timeSec) {
   const cx = w / 2;
   const cy = h * 0.58 + plane.pitchDeg * 2.2;
   const bank = (plane.rollDeg * Math.PI) / 180;
-  const scale = 1 + plane.speedKts / 900;
+  const scale = 1.35 + plane.speedKts / 1200;
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(bank * 0.55);
@@ -356,6 +457,15 @@ export function drawAircraft(ctx, plane, w, h, timeSec) {
   ctx.quadraticCurveTo(-20, -40, 0, -72);
   ctx.closePath();
   ctx.fill();
+  // Sunlit top of the fuselage and a shaded belly — the aircraft reads as built.
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(-3, -38, 7, 26, 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(60,20,12,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, 34, 12, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = '#c23b2e';
   ctx.fillRect(-16, -6, 32, 7);
   const canopy = ctx.createLinearGradient(0, -66, 0, -28);
@@ -394,6 +504,22 @@ export function drawAircraft(ctx, plane, w, h, timeSec) {
   ctx.textAlign = 'center';
   ctx.fillText('KF-7', 0, 34);
   ctx.restore();
+  // Wingtip trails: fading white ribbons streaming back — speed you can see.
+  if (plane.speedKts > 70 && !plane.grounded) {
+    const trailLen = 60 + plane.speedKts * 0.35;
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 7; i++) {
+        const t = i / 7;
+        const alpha = 0.4 * (1 - t);
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        ctx.lineWidth = 5 * (1 - t) + 1;
+        ctx.beginPath();
+        ctx.moveTo(cx + side * 112 * scale + side * t * 26, cy + 4 + t * trailLen * 0.6);
+        ctx.lineTo(cx + side * 112 * scale + side * (t + 0.14) * 26, cy + 4 + (t + 0.14) * trailLen * 0.6);
+        ctx.stroke();
+      }
+    }
+  }
   // Ground shadow: a soft ellipse tracking the terrain below.
   const ground = terrainHeight(plane.x, plane.z);
   const heightAbove = Math.max(0, plane.altFt - ground);
@@ -413,6 +539,7 @@ export function drawScene(ctx, plane, mission, view, w, h, timeSec) {
   drawSky(ctx, plane, w, h, horizonY, timeSec);
   drawRidges(ctx, plane, w, horizonY);
   drawGround(ctx, plane, w, h, horizonY, pitchOffset);
+  drawTrees(ctx, plane, w, h, horizonY, pitchOffset);
   drawRunway(ctx, plane, w, h, horizonY, pitchOffset);
   drawTown(ctx, plane, w, h, horizonY, pitchOffset);
   drawLighthouse(ctx, plane, w, h, horizonY, pitchOffset);

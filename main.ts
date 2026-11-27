@@ -16,6 +16,8 @@ const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 // here instead of handing in a dossier the scorer would reject.
 const shotsDir = join(here, 'screenshots');
 if (!existsSync(shotsDir)) throw new Error('screenshots/ is missing — take 3 or 4 real renders first');
+const gameIndex = join(here, 'game', 'index.html');
+if (!existsSync(gameIndex)) throw new Error('game/index.html is missing — the gate requires it');
 
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
